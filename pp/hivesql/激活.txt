@@ -1,0 +1,61 @@
+	
+'ip24'
+激活车辆
+	select 	 '$data_date',
+  CUSTOMER_TYPE,
+		count(distinct(v.vin)) as carnum
+	
+        from tb_bas_vehicle  v,
+          tb_bas_vehicle_type y,
+          tb_bas_vehicle_terminal t
+          devdb.tb_vin_customer a
+         where t.teminal_no=v.vehicle_no
+         and v.vin=a.vin
+          and v.vehicle_type_id=y.id 
+         and y.vehicle_type_name='ip24'
+         and v.status=1
+         and t.status=1
+         and t.is_valid=1
+         and v.is_valid=1
+         and y.is_valid=1
+         and t.last_update_date<'$pt_end'
+         and t.terminal_activation_date is not null
+         group by CUSTOMER_TYPE
+
+'ep11'
+	select 	 '$data_date',CUSTOMER_TYPE,
+		count(distinct(v.vin)) as carnum
+		
+        from tb_bas_vehicle  v,
+          tb_bas_vehicle_type y,
+          tb_bas_vehicle_terminal t
+          devdb.tb_vin_customer a
+         where t.teminal_no=v.vehicle_no
+         and v.vin=a.vin
+          and v.vehicle_type_id=y.id 
+         and y.vehicle_type_name='ep11'
+         and v.status=1
+         and t.status=1
+         and t.is_valid=1
+         and v.is_valid=1
+         and y.is_valid=1
+         and t.last_update_date<'$pt_end'
+         and t.terminal_activation_date is not null
+         group by CUSTOMER_TYPE
+
+使用车辆
+
+select '$data_date',CUSTOMER_TYPE, count(distinct vin )
+from rvm_hbd_triprecord_cv_mes a  join devdb.tb_vin_customer b
+where  pt>='$pt' and pt<'$pt_end' and a.vin=b.vin  group by CUSTOMER_TYPE
+
+
+
+平均油耗：
+select '$data_date','ep11' as nama, avg(avgfuelconsumption) 
+from (
+		select  vin ,avgfuelconsumption,
+		lead(avgfuelconsumption,1, null) over (partition by vin order by data_date) as lead_avgfuelconsumption
+		from rvm_hbd_tripdetails_bn_mes
+		where pt>='$pt' and pt<'$pt_end' ) a 
+where lead_avgfuelconsumption is null 

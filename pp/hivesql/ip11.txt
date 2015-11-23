@@ -1,0 +1,249 @@
+
+SELECT '$data_date',
+		'使用车辆数',
+       CUSTOMER_TYPE,
+       count(DISTINCT a.vin)
+FROM
+  (SELECT *
+   FROM rvm_hbd_triprecord_cv_mes
+   WHERE pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+SELECT '$data_date',
+		'总行驶里程数',
+       CUSTOMER_TYPE,
+       sum(pr)
+FROM
+  (SELECT vin,
+          max(mileage)-min(mileage) AS pr
+   FROM rx_rvm_elc_tripdetails_temp
+   WHERE mileage<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin)a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+
+
+SELECT '$data_date',
+		'纯电里程',
+       CUSTOMER_TYPE,
+       sum(diff_date_lat*v/3600)
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_tripdetails_temp
+   WHERE diff_date_lat<180
+     AND work_model=3
+     AND pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+
+SELECT '$data_date',
+		'车均月里程',
+       CUSTOMER_TYPE ,
+       avg(pr)
+FROM
+  (SELECT vin,
+          max(mileage)-min(mileage) AS pr
+   FROM rx_rvm_elc_tripdetails_temp
+   WHERE mileage<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin)a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+ 
+
+SELECT '$data_date',
+		'车均日纯电里程',
+       CUSTOMER_TYPE,
+       sum(a.diff_date_lat*a.v)/1000/30/count(DISTINCT a.vin)
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_tripdetails_temp
+   WHERE diff_date_lat<180
+     AND hevsystemmode=3
+     AND mileage<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+SELECT '$data_date',
+		'车均日上下电次数',
+       CUSTOMER_TYPE,
+       count(a.vin)/30/count(DISTINCT a.vin)
+FROM
+  ( SELECT vin
+   FROM rx_rvm_elc_triprecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   UNION ALL SELECT vin
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end' )a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+SELECT '$data_date',
+		'平均车速',
+       CUSTOMER_TYPE,
+       avg(a.v)
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_tripdetails_temp
+   WHERE pt>='$pt'
+     AND pt<'$pt_end'
+     AND v<160) a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+ 
+ 
+SELECT '$data_date',
+		'充电车辆数',
+       CUSTOMER_TYPE,
+       count(DISTINCT a.vin)
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+SELECT '$data_date',
+		'几乎每天充电的车辆台数',
+       CUSTOMER_TYPE,
+       count(a.vin)
+FROM
+  (SELECT vin,
+          count(DISTINCT day(start_date)) num1
+   FROM rx_rvm_elc_triprecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) a
+JOIN
+  (SELECT vin,
+          count(DISTINCT day(start_date)) num2
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) b ON a.vin=b.vin
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') c ON a.vin=c.vin
+WHERE b.num2/a.num1>0.3
+group by customer_type;
+
+
+
+SELECT '$data_date',
+		'单车单次平均充电度数',
+       CUSTOMER_TYPE,
+       avg(ag)
+FROM
+  (SELECT vin ,
+          avg((end_batt-start_batt)*11.8/100) AS ag
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+SELECT '$data_date',
+		'车均月充电时长',
+       CUSTOMER_TYPE ,
+       sum(unix_timestamp(a.end_date)-unix_timestamp(a.start_date))/count(DISTINCT a.vin)/60/60
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+
+
+
+SELECT '$data_date',
+		'车均月充电次数',
+       b.CUSTOMER_TYPE ,
+       count(a.vin)/count(DISTINCT a.vin)
+FROM
+  (SELECT *
+   FROM rx_rvm_elc_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end') a
+JOIN
+  (SELECT *
+   FROM devdb.t_vin_customer
+   WHERE pt='$pt') b ON a.vin=b.vin
+group by customer_type;
+ 
+ 
+ tb_mnt_signal_data_his
+ 
+
+CREATE TABLE tb_vin_customer AS
+SELECT vin,'20150501' as pt,
+       CASE
+           WHEN (CUSTOMER_TYPE = 4301) THEN '个人客户'
+           WHEN (CUSTOMER_TYPE = 4311) THEN '公司客户'
+       END CUSTOMER_TYPE
+FROM
+  (SELECT row_number() over(partition BY vin
+                            ORDER BY create_date DESC) rn,
+                                                       tv.CUSTOMER_TYPE,
+                                                       tv.vin
+   FROM devdb.dol_tm_customer_his tv
+   WHERE pt< '20150501') n
+WHERE rn = 1

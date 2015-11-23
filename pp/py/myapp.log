@@ -1,0 +1,214 @@
+Thu, 19 Nov 2015 14:32:21 hiveClient.py[line:30] INFO use aichuche_db
+Thu, 19 Nov 2015 14:32:21 hiveClient.py[line:30] INFO 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 14:32:21 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 14:32:21 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 14:33:09 hiveClient.py[line:30] INFO 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='20151118') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 14:33:09 hiveClient.py[line:51] INFO Query returned non-zero code: 10004, cause: FAILED: SemanticException [Error 10004]: Line 11:6 Invalid table alias or column reference 'status': (possible column names are: deviceid, dt, gpsx, gpsy, next_dt, next_status, next_gpsx, next_gpsy)
+Thu, 19 Nov 2015 14:38:14 hiveClient.py[line:30] INFO use aichuche_db
+Thu, 19 Nov 2015 14:38:14 hiveClient.py[line:30] INFO 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 14:38:15 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 14:38:15 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 14:39:04 hiveClient.py[line:30] INFO 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='20151118') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 14:39:04 hiveClient.py[line:51] INFO Query returned non-zero code: 40000, cause: FAILED: ParseException line 9:4 mismatched input '(' expecting ) near 'lead' in subquery source
+Thu, 19 Nov 2015 14:43:58 hiveClient.py[line:30] INFO use aichuche_db
+Thu, 19 Nov 2015 14:43:58 hiveClient.py[line:30] INFO 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 14:43:58 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 14:43:58 hiveClient.py[line:30] INFO 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 14:44:45 hiveClient.py[line:30] INFO 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='20151118') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 14:46:00 hiveClient.py[line:30] INFO 
+
+create table t_splitdistance2 as
+select deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+dt,gpsx,gpsy,next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e'
+
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO use aichuche_db
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='201111') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 15:05:25 hiveClient.py[line:32] INFO 
+
+create table t_splitdistance2 as
+select deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+dt,gpsx,gpsy,next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e'
+
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG use aichuche_db
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='201111') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 15:06:07 hiveClient.py[line:32] DEBUG 
+
+create table t_splitdistance2 as
+select deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+dt,gpsx,gpsy,next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e'
+
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG use aichuche_db
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='20151118') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+
+create table t_splitdistance2 as
+select deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+dt,gpsx,gpsy,next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e'
+Thu, 19 Nov 2015 16:02:44 hiveClient.py[line:32] DEBUG 
+select * from t_splitdistance2
+Thu, 19 Nov 2015 16:03:00 hiveClient.py[line:32] DEBUG use aichuche_db
+Thu, 19 Nov 2015 16:03:00 hiveClient.py[line:32] DEBUG 
+alter table t_reportdata101 add if not exists partition (pt='20151118')
+Thu, 19 Nov 2015 16:03:00 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance1
+Thu, 19 Nov 2015 16:03:01 hiveClient.py[line:32] DEBUG 
+drop table  if exists t_splitdistance2
+Thu, 19 Nov 2015 16:03:40 hiveClient.py[line:32] DEBUG 
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or next_dt-dt>=300 ) then 's' 
+when (next_dt is null or dt-last_dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='20151118') a) b
+where status in ('e','s')
+Thu, 19 Nov 2015 16:04:55 hiveClient.py[line:32] DEBUG 
+
+create table t_splitdistance2 as
+select deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+dt,gpsx,gpsy,next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e'
+Thu, 19 Nov 2015 16:04:55 hiveClient.py[line:32] DEBUG 
+select * from t_splitdistance2
+Thu, 19 Nov 2015 16:39:52 hiveClient.py[line:56] INFO Query returned non-zero code: 10001, cause: FAILED: SemanticException [Error 10001]: Line 1:14 Table not found 't_splitdistance2'
+Fri, 20 Nov 2015 13:41:10 utils.py[line:18] INFO 123

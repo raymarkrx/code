@@ -1,0 +1,231 @@
+
+ 
+
+SELECT '$data_date',
+		'使用车辆数',
+       '总体',
+       count(DISTINCT vin)
+FROM rvm_hbd_triprecord_cv_mes
+WHERE pt>='$pt'
+  AND pt<'$pt_end';
+
+
+
+SELECT '$data_date',
+		'总行驶里程数',
+       '总体',
+       sum(pr)
+FROM
+  ( SELECT vin,
+           max(odo_primary)-min(odo_primary) AS pr
+   FROM rvm_hbd_tripdetails_bn_mes
+   WHERE odo_primary<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin)a;
+
+
+
+
+SELECT '$data_date',
+		'纯电里程',
+       '总体',
+       sum(diff_date_lat*v/3600)
+FROM rvm_hbd_tripdetails_bn_mes
+WHERE diff_date_lat<600
+  AND (hevsystemmode=3
+       OR (engfuelpumpreq=0
+           AND hevsystemmode=7))
+  AND pt>='$pt'
+  AND pt<'$pt_end'
+  AND v<240
+  AND v>0
+  AND odo_primary <300000
+  AND odo_primary>0;
+
+
+
+SELECT '$data_date',
+		'串联里程',
+       '总体',
+       sum(diff_date_lat*v/3600)
+FROM rvm_hbd_tripdetails_bn_mes
+WHERE diff_date_lat<600
+  AND hevsystemmode=5
+  AND pt>='$pt'
+  AND pt<'$pt_end'
+  AND v<240
+  AND v>0
+  AND odo_primary <300000
+  AND odo_primary>0;
+ 
+
+
+SELECT '$data_date',
+		'混动里程',
+       '总体',
+       sum(diff_date_lat*v/3600)
+FROM rvm_hbd_tripdetails_bn_mes
+WHERE diff_date_lat<600
+  AND (hevsystemmode IN (6,
+                         2,
+                         4)
+       OR (hevsystemmode=7
+           AND engfuelpumpreq=1))
+  AND pt>='$pt'
+  AND pt<'$pt_end'
+  AND v<240
+  AND v>0
+  AND odo_primary <300000
+  AND odo_primary>0;
+
+
+
+SELECT '$data_date',
+		'车均月里程',
+       '总体',
+       avg(pr)
+FROM
+  (SELECT vin,
+          max(odo_primary)-min(odo_primary) AS pr
+   FROM rvm_hbd_tripdetails_bn_mes
+   WHERE odo_primary<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin)a;
+ 
+
+
+SELECT '$data_date',
+		'车均日里程',
+       '总体',
+       sum(pr)/30
+FROM
+  (SELECT vin,
+          max(odo_primary)-min(odo_primary) AS pr
+   FROM rvm_hbd_tripdetails_bn_mes
+   WHERE odo_primary<300000
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin)a;
+ 
+
+
+SELECT '$data_date',
+		'车均日纯电里程',
+       '总体',
+       sum(diff_date_lat*v)/1000/30/count(DISTINCT vin)
+FROM rvm_hbd_tripdetails_bn_mes
+WHERE diff_date_lat<600
+  AND (hevsystemmode=3
+       OR (engfuelpumpreq=0
+           AND hevsystemmode=7))
+  AND pt>='$pt'
+  AND pt<'$pt_end'
+  AND v<240
+  AND v>0
+  AND odo_primary <300000
+  AND odo_primary>0;
+
+
+
+
+
+
+SELECT '$data_date',
+		'车均日上下电次数',
+       '总体',
+       count(vin)/30/count(DISTINCT vin)
+FROM
+  ( SELECT vin
+   FROM rvm_hbd_triprecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   UNION ALL SELECT vin
+   FROM rvm_hbd_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end' )a;
+
+
+ 
+SELECT '$data_date',
+		' 平均车速',
+       '总体',
+       avg(a.v)
+FROM rvm_hbd_tripdetails_bn_mes a
+WHERE pt>='$pt'
+  AND pt<'$pt_end'
+  AND a.v<240;
+
+
+ 
+SELECT '$data_date',
+		'充电车辆数',
+       '总体',
+       count(DISTINCT vin)
+FROM rvm_hbd_chargerecord_cv_mes
+WHERE pt>='$pt'
+  AND pt<'$pt_end';
+
+
+
+SELECT '$data_date',
+		'每天充电的车辆数',
+       '总体',
+       count(a.vin)
+FROM
+  (SELECT vin,
+          count(DISTINCT day(start_date)) num1
+   FROM rvm_hbd_triprecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) a
+JOIN
+  (SELECT vin,
+          count(DISTINCT day(start_date)) num2
+   FROM rvm_hbd_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) b ON a.vin=b.vin
+WHERE b.num2/a.num1>0.3;
+
+
+
+
+SELECT '$data_date',
+		'车均次充电度数',
+       '总体',
+       avg(ag)
+FROM
+  (SELECT vin ,
+          avg((end_batt-start_batt)*11.8/100) AS ag
+   FROM rvm_hbd_chargerecord_cv_mes
+   WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+     AND pt>='$pt'
+     AND pt<'$pt_end'
+   GROUP BY vin) a;
+
+ 
+SELECT '$data_date',
+		'车均月充电时长',
+       '总体',
+       sum(unix_timestamp(end_date)-unix_timestamp(start_date))/count(DISTINCT vin)/60/60
+FROM rvm_hbd_chargerecord_cv_mes
+WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+  AND pt>='$pt'
+  AND pt<'$pt_end';
+
+
+SELECT '$data_date',
+		'车均月充电次数',
+       '总体',
+       count(vin)/count(DISTINCT vin)
+FROM rvm_hbd_chargerecord_cv_mes
+WHERE unix_timestamp(end_date)-unix_timestamp(start_date)>30*60
+  AND pt>='$pt'
+  AND pt<'$pt_end';
+ 

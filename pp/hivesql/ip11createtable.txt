@@ -1,0 +1,213 @@
+
+/ $pt=now -d 
+  $pt_beg=now -2d
+  $pt_end=now 
+  $data_date =now -2d
+  $data_date_end=now
+/
+
+生成行驶信号临时表（暂时表，加入编号后为固定表，同时网格化）
+create table rx_rvm_elc_tripdetails_temp as 
+ select * from 
+ (select vin,data_date,
+  round((unix_timestamp(data_date)-lag(unix_timestamp(data_date), 1, null) over(partition by vin order by data_date)) ) diff_date_pre,
+  round((lead(unix_timestamp(data_date), 1, null)over(partition by vin order by data_date)-unix_timestamp(data_date)) ) diff_date_lat,
+  create_date,work_model,
+  lag(work_model, 1, null) over(partition by vin order by data_date) as pre_model,--前一信号model
+  lead(work_model, 1, null) over(partition by vin order by data_date) as lat_model,--后一信号model
+  longitude as original_longitude_change,latitude as original_latitude_change,--纠偏后经纬度（具体字段不明）
+  lag(longitude, 1, null) over(partition by vin order by data_date) pre_longitude,--前一信号纠偏前经纬度
+  lag(latitude, 1, null) over(partition by vin order by data_date) pre_latitude,
+  111.199 *sqrt(power((lag(latitude, 1, null)over(partition by vin order by data_date) - latitude),2) + 
+               power((lag(longitude, 1, null)over(partition by vin order by data_date) -longitude)
+                * cos((latitude+lag(latitude, 1, null)over(partition by vin order by data_date)) * 3.1415926/2/180), 2)) diff_gps_pre, --与前一信号的距离     
+  odo_primary mileage,
+  odo_primary - lag(odo_primary, 1, null) over(partition by vin order by data_date)  diff_mile_pre,--与前一信号的里程数变化
+  lead(odo_primary, 1, null)over(partition by vin order by data_date)-odo_primary  diff_mile_lat,--与后一信号的里程数变化
+  wheelspeedrr*60*2*3.14159265*0.262/1000 v,--车速          
+  bmspacksocactual batt,--电量
+  bmspacksocactual - lag(BMSPACKSOCactual, 1, null) over(partition by vin order by data_date) diff_batt_pre,
+  0 category,--信号类型默认为0
+  cast (longitude/0.001 as int )*1000000 + cast (latitude/0.001 as int ) mapgrid_id --网格编号
+  from hdfs.rvm_mnt_signal_data_ods_his --纠偏后信号表
+ where (longitude < 136 and longitude > 73) --中国范围内
+   and (latitude < 54 and latitude > 3)
+   and pt>='$pt_beg' and pt<='$pt_end'
+   and (create_date >= '$data_date'--上传时间在统计范围内
+   and  create_date <= '$data_date_end')
+   and (data_date >= '$data_date'  --信号时间正确（与统计时间相同）
+   and data_date <= '$data_date_end')) a
+       where work_model = 1
+
+切分行程，生成行程下上线表
+
+create table rx_rvm_elc_trippoint_cv_mes as 
+    select vin ,data_date,pre_model,lat_model,batt,original_longitude_change,original_latitude_change,mileage,
+ case when (isstart = 1 and isend = 0) then 's' when (isstart = 0 and isend = 1) then 'e' end as start_status
+ from (select 
+  case when (pre_model > 1 or pre_model is null or diff_date_pre >= 2227) or 
+       (diff_date_pre > 942 and diff_date_pre < 2227 and diff_mile_pre < 2) or
+       (diff_date_pre > 942 and diff_date_pre < 2227 and diff_mile_pre > 1 and 
+    diff_mile_pre * 3600 / diff_date_pre > 120) or 
+       (diff_date_pre > 942 and diff_date_pre < 2227 and diff_mile_pre > 1 and 
+    diff_mile_pre * 3600 / diff_date_pre < 10.29) then 1 else 0 end as isstart,
+  case when (lat_model > 1 or lat_model is null or diff_date_lat >= 2227) or
+       (diff_date_lat > 942 and diff_date_lat < 2227 and diff_mile_lat < 2) or
+       (diff_date_lat > 942 and diff_date_lat < 2227 and diff_mile_lat > 1 and 
+    diff_mile_lat * 3600 / diff_date_lat > 120) or
+       (diff_date_lat > 942 and diff_date_lat < 2227 and diff_mile_lat > 1 and 
+    diff_mile_lat * 3600 / diff_date_lat <10.29) then 1 else 0 end as isend ,
+    vin ,data_date,pre_model,lat_model,batt,original_longitude_change,original_latitude_change,mileage
+    from rx_rvm_elc_tripdetails_temp where 
+    data_date >= '$data_date' and data_date < '$data_date_end'
+    and pt='$pt')a where (isstart = 1 and isend = 0) or (isstart = 0 and isend = 1) 
+       
+
+整合起点终点，生成行程表
+
+create table rx_rvm_elc_triprecord_cv_mes as 
+select vin,
+         start_date,
+         end_date,
+         start_longitude,
+         start_latitude,
+         end_longitude,
+         end_latitude,
+         start_batt,
+         end_batt,
+         start_mile,
+         end_mile,
+         100*(from_unixtime(unix_timestamp(start_date), 'yyyymmdd')+row_number()over(partition by vin order by start_date)) seq --行程编号：eg2015011209当日第9段行程
+    from (select vin,
+                 data_date start_date,
+                 lead(data_date, 1, null) over(partition by vin order by data_date) end_date,
+                 original_longitude_change start_longitude,
+                 original_latitude_change start_latitude,
+                 lead(original_longitude_change , 1, null) over(partition by vin order by data_date) as end_longitude,
+                 lead(original_latitude_change, 1, null) over(partition by vin order by data_date) as end_latitude,
+                 batt start_batt,
+                 lead(batt, 1, null) over(partition by vin order by data_date) end_batt,
+                 mileage start_mile,
+                 lead(mileage, 1, null) over(partition by vin order by data_date) as end_mile,
+                 start_status,
+                 lead(start_status, 1, null) over(partition by vin order by data_date) as lat_status
+            from rx_rvm_elc_trippoint_cv_mes where pt='$pt') a 
+   where start_status = 's'
+     and lat_status = 'e'
+     and start_date >= '$data_date'
+     and start_date <'$data_date_end'
+
+
+将行程编号同步到行驶信号表
+
+create table rx_rvm_elc_tripdetails_cv_mes as  
+select b.*,a.seq 
+	from (select * from rx_rvm_elc_tripdetails_temp where pt='$pt') b  
+	join (select * from rx_rvm_elc_triprecord_cv_mes where pt='$pt') a
+	on b.vin =a.vin
+	where b.data_date between a.start_date and a.end_date 
+			and (b.data_date >= '$data_date' and b.data_date < '$data_date_end')
+
+整合起点终点，生成停车表
+
+create table rx_rvm_elc_stoprecord_cv_mes as 
+  select vin, start_date, end_date, original_longitude_change, original_latitude_change, start_batt, end_batt,mileage
+    from (select vin,
+                 data_date start_date,
+                 lead(data_date, 1, null) over(partition by vin order by data_date) end_date,
+                 original_longitude_change,
+                 original_latitude_change,
+                 batt start_batt,
+                 lead(batt, 1, null) over(partition by vin order by data_date) end_batt,
+                 mileage,
+                 start_status,
+                 lead(start_status, 1, null) over(partition by vin order by data_date) as lat_status
+            from  rx_rvm_elc_trippoint_cv_mes where pt='$pt') a
+   where start_status = 'e'
+     and lat_status = 's'
+     and start_date >= '$data_date'
+     and start_date < '$data_date_end'
+
+
+
+
+生成充电信号表
+create table rx_rvm_elc_chargedetails_cv_mes as 
+select * from
+(select vin, 
+		data_date,
+		ROUND(unix_timestamp(data_date) -lag(unix_timestamp(data_date), 1, null)over(partition by vin order by data_date)) as diff_date_pre,
+		ROUND(lead(unix_timestamp(data_date), 1, null)over(partition by vin order by data_date) - unix_timestamp(data_date)) as diff_date_lat,
+		CREATE_DATE,
+		work_model,
+		lag(WORK_MODEL, 1, NULL) OVER(partition by vin order by data_date) as pre_model,
+		lead(WORK_MODEL, 1, NULL) OVER(partition by vin order by data_date)as lat_model,                                 
+		LONGITUDE,--纠偏后经纬度
+		LATITUDE, 
+		lag(odo_primary, 1, null) over(partition by vin order by data_date) as pre_mile, 
+		lead(odo_primary, 1, null) over(partition by vin order by data_date) as lat_mile,
+		lag(BMSPACKSOCACTUAL, 1, null) over(partition by vin order by data_date)  pre_batt,                                 
+		BMSPACKSOCACTUAL batt,
+		lead(BMSPACKSOCACTUAL, 1, null) over(partition by vin order by data_date) lat_batt,
+		chargevoltage chargev,--充电电压
+		chargecurrent chargec--充电电流
+from hdfs.rvm_mnt_signal_data_ods_his --纠偏后信号表
+where (data_date >='$data_date'--信号时间
+		and  data_date <'$data_date_end')  and pt>='$pt_beg' and pt<='$pt_end'
+		and (create_date >='$data_date'--上传时间在统计范围
+		and create_date < '$data_date_end')
+		and (longitude < 136 and longitude > 73) --中国范围内
+		and (latitude < 54 and latitude > 3)
+) a
+	where work_model in (2,3)
+
+
+切分充电，生成充电上下线表
+
+create table rx_rvm_elc_chargepoint_cv_mes as 
+ select vin,data_date,work_model,PRE_MODEL,LAT_MODEL,batt,longitude,latitude,
+         case when  isstart = 1 and isend = 0 then pre_mile 
+   when isstart = 0 and isend = 1 then lat_mile end as mileage, 
+   case when  isstart = 1 and isend = 0 then 's' 
+   when isstart = 0 and isend = 1 then 'e' end as start_status  from 
+ (select vin,data_date,work_model,PRE_MODEL,LAT_MODEL,batt,longitude,latitude,pre_mile,lat_mile,
+		 case when (pre_model = 1 or pre_model is null) or 
+		       (pre_model > 1 and diff_date_pre > 600 and diff_date_pre < 18000 
+		       and batt <= pre_batt and batt<100) 
+		       or (pre_model > 1 and diff_date_pre >= 18000) then 1 else 0 end as isstart,
+		 case when (lat_model = 1 or lat_model is null) or
+		       (lat_model > 1 and diff_date_lat > 600 and diff_date_lat < 18000 and lat_batt <= batt) 
+		       or (lat_model > 1 and diff_date_lat >= 18000) then 1 else 0 end as isend 
+    from rx_rvm_elc_chargedetails_cv_mes 
+    where pt='$pt'
+    ) a 
+    where (isstart = 1 and isend = 0 ) or (isstart = 0 and isend = 1)
+
+整合开始结束，生成充电表
+
+create table rx_rvm_elc_chargerecord_cv_mes as 
+select vin,work_model,
+          start_date,end_date,
+          start_batt,end_batt,
+          longitude,latitude,
+          (case when(mileage is not null) then mileage
+                else lat_mile
+                end) mileage
+     from (select vin,
+     work_model,
+                  data_date start_date,
+                  lead(data_date, 1, null) over(partition by vin order by data_date) as end_date,
+                  batt start_batt,
+                  lead(batt, 1, null) over(partition by vin order by data_date) as end_batt,
+                  longitude,
+                  latitude,
+                  mileage,
+                  lead(mileage, 1, null) over(partition by vin order by data_date) as lat_mile,
+                  start_status,
+                  lead(start_status, 1, null) over(partition by vin order by data_date) as lat_status
+             from rx_rvm_elc_chargepoint_cv_mes where pt='$pt') a
+    where start_status = 's'
+      and lat_status = 'e'
+      and end_batt>start_batt
+      and start_date >='$data_date'
+      and start_date < '$data_date_end'

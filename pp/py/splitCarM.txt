@@ -1,0 +1,30 @@
+use aichuche_db;
+alter table t_reportdata101 add if not exists partition (pt='$pt') location '$pt';
+drop table  if exists t_splitdistance1;
+drop table  if exists t_splitdistance2;
+create table t_splitdistance1 as 
+select * from (
+select  deviceid,dt, gpsx ,gpsy,
+case when (last_dt is null or dt-last_dt>=300 ) then 's' 
+when (next_dt is null or next_dt-dt>=300 ) then 'e' end as status
+from (
+select deviceid , dt, gpsx ,gpsy ,
+lag(dt,1,null) over (partition by deviceid order by dt) as last_dt,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt
+from t_reportdata101 where pt='$pt') a) b
+where status in ('e','s');
+
+create table t_splitdistance2 as
+select from_unixtime(dt,'yyyy-MM-dd') as pt,  deviceid ,
+row_number() over (partition by deviceid order by dt ) as serial_num,
+from_unixtime(dt,'yyyy-MM-dd HH:mm:ss') as dt ,gpsx,gpsy,
+from_unixtime(next_dt,'yyyy-MM-dd HH:mm:ss') as next_dt,next_gpsx,next_gpsy
+from (
+select deviceid,dt, gpsx ,gpsy,status,
+lead(dt,1,null) over (partition by deviceid order by dt) as next_dt,
+lead(status,1,null) over (partition by deviceid order by dt) as next_status,
+lead(gpsx,1,null) over (partition by deviceid order by dt) as next_gpsx,
+lead(gpsy,1,null) over (partition by deviceid order by dt) as next_gpsy
+from t_splitdistance1) a
+where status='s' and next_status='e';
+select * from t_splitdistance2;

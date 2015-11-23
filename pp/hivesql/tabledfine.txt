@@ -1,0 +1,131 @@
+rx_rvm_elc_tripdetails_temp 
+
+0 vin string  
+1 data_date string  
+2 diff_date_pre bigint  
+3 diff_date_lat bigint  
+4 create_date string  
+5 work_model double  
+6 pre_model double  
+7 lat_model double  
+8 original_longitude_change double  
+9 original_latitude_change double  
+10 pre_longitude double  
+11 pre_latitude double  
+12 diff_gps_pre double  
+13 mileage double  
+14 diff_mile_pre double  
+15 diff_mile_lat double  
+16 v double  
+17 batt double  
+18 diff_batt_pre double  
+19 category int  
+20 mapgrid_id int 
+
+rx_rvm_elc_trippoint_cv_mes 
+
+0 vin string  
+1 data_date string  
+2 pre_model double  
+3 lat_model double  
+4 batt double  
+5 original_longitude_change double  
+6 original_latitude_change double  
+7 mileage double  
+8 start_status string 
+
+rx_rvm_elc_triprecord_cv_mes
+0 vin string  
+1 start_date string  
+2 end_date string  
+3 start_longitude double  
+4 start_latitude double  
+5 end_longitude double  
+6 end_latitude double  
+7 start_batt double  
+8 end_batt double  
+9 start_mile double  
+10 end_mile double  
+11 seq double 
+
+
+rx_rvm_elc_tripdetails_cv_mes 
+0 vin string  
+1 data_date string  
+2 diff_date_pre bigint  
+3 diff_date_lat bigint  
+4 create_date string  
+5 work_model double  
+6 pre_model double  
+7 lat_model double  
+8 original_longitude_change double  
+9 original_latitude_change double  
+10 pre_longitude double  
+11 pre_latitude double  
+12 diff_gps_pre double  
+13 mileage double  
+14 diff_mile_pre double  
+15 diff_mile_lat double  
+16 v double  
+17 batt double  
+18 diff_batt_pre double  
+19 category int  
+20 mapgrid_id int  
+21 seq double 
+
+
+rx_rvm_elc_stoprecord_cv_mes 
+0 vin string  
+1 start_date string  
+2 end_date string  
+3 original_longitude_change double  
+4 original_latitude_change double  
+5 start_batt double  
+6 end_batt double  
+7 mileage double 
+
+rx_rvm_elc_chargedetails_cv_mes 
+
+0 vin string  
+1 data_date string  
+2 diff_date_pre bigint  
+3 diff_date_lat bigint  
+4 create_date string  
+5 work_model double  
+6 pre_model double  
+7 lat_model double  
+8 longitude double  
+9 latitude double  
+10 pre_mile double  
+11 lat_mile double  
+12 batt double  
+13 pre_batt double  
+14 lat_batt double  
+15 chargev double  
+16 chargec double 
+
+rx_rvm_elc_chargepoint_cv_mes
+
+0 vin string  
+1 data_date string  
+2 work_model double  
+3 pre_model double  
+4 lat_model double  
+5 batt double  
+6 longitude double  
+7 latitude double  
+8 mileage double  
+9 start_status string 
+
+
+rx_rvm_elc_chargerecord_cv_mes 
+
+0 vin string  
+1 work_model double  
+2 start_date string  
+3 end_date string  
+4 start_batt double  
+5 end_batt double  
+6 longitude double  
+7 latitude double  
+8 mileage double 
